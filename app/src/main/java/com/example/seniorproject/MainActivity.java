@@ -3,9 +3,6 @@ package com.example.seniorproject;
 import android.os.AsyncTask;
 import android.os.Bundle;
 
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.snackbar.Snackbar;
-
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
@@ -13,27 +10,28 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Button;
-import android.widget.EditText;
+
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
 import java.io.PrintWriter;
-import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
-    EditText sendTxt;
-    Button sendButton;
+    Button connectButton;
 
     private static Socket socket;
-    private static InputStreamReader inputStreamReader;
-    private static BufferedReader bufferedReader;
-    private static PrintWriter printWriter;
-
-    String message = "";
+    private static DataOutputStream dataOutputStream;
+    private static ObjectInputStream objectInputStream;
+    private static StandardDeviation standardDeviation;
     private static String ip = "192.168.0.109";
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,33 +40,45 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        sendTxt = findViewById(R.id.sendText);
-        sendButton = findViewById(R.id.sendButton);
-        sendButton.setOnClickListener(new View.OnClickListener() {
+        standardDeviation = new StandardDeviation();
+        connectButton = findViewById(R.id.connectButton);
+        connectButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                sendText();
+                connectToServer();
             }
         });
     }
 
-    public void sendText () {
-        message = sendTxt.getText().toString();
-        MyTask task = new MyTask();
+    public void connectToServer () {
+        serverTask task = new serverTask();
         task.execute();
     }
 
-    class MyTask extends AsyncTask<Void, Void, Void> {
+    class serverTask extends AsyncTask<Void, Void, Void> {
 
         @Override
         protected Void doInBackground(Void... voids) {
             try {
                 socket = new Socket(ip, 5000);
-                printWriter = new PrintWriter(socket.getOutputStream());
-                printWriter.write(message);
-                printWriter.flush();
-                printWriter.close();
-                socket.close();
+                objectInputStream = new ObjectInputStream(socket.getInputStream());
+                dataOutputStream = new DataOutputStream(socket.getOutputStream());
+
+                while(true) {
+                    List<Double> gene = (List<Double>) objectInputStream.readObject();
+                    Double tStat = getTStat(gene);
+                    List<Double> permutationTStats = new ArrayList<>();
+
+                    for(int i=0; i<100; i++) {
+                        Collections.shuffle(gene);
+                        permutationTStats.add(getTStat(gene));
+                    }
+
+                    double[] permutationTStatsArray = permutationTStats.toArray(new double[0]);
+                    Double permutationStandardDeviation = standardDeviation.evaluate(permutationTStats);
+                }
+
+
 
 
             } catch (Exception e) {
@@ -77,6 +87,10 @@ public class MainActivity extends AppCompatActivity {
 
             return null;
         }
+    }
+
+    private Double getTStat(List<Double> gene) {
+        return 0.09;
     }
 
     @Override
