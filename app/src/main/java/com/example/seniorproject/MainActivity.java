@@ -11,6 +11,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Button;
 
+import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import java.io.BufferedReader;
@@ -20,8 +21,10 @@ import java.io.ObjectInputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -31,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
     private static DataOutputStream dataOutputStream;
     private static ObjectInputStream objectInputStream;
     private static StandardDeviation standardDeviation;
+    private static Mean mean;
     private static String ip = "192.168.0.109";
 
     @Override
@@ -40,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        mean = new Mean();
         standardDeviation = new StandardDeviation();
         connectButton = findViewById(R.id.connectButton);
         connectButton.setOnClickListener(new View.OnClickListener() {
@@ -65,21 +70,23 @@ public class MainActivity extends AppCompatActivity {
                 dataOutputStream = new DataOutputStream(socket.getOutputStream());
 
                 while(true) {
-                    List<Double> gene = (List<Double>) objectInputStream.readObject();
-                    Double tStat = getTStat(gene);
-                    List<Double> permutationTStats = new ArrayList<>();
+                    double[] gene = (double[]) objectInputStream.readObject();
+                    double tStat = getTStat(gene);
+                    double[] permutationTStats = new double[1000];
 
-                    for(int i=0; i<100; i++) {
-                        Collections.shuffle(gene);
-                        permutationTStats.add(getTStat(gene));
+                    for(int i=0; i<1000; i++) {
+                        shuffleArray(gene);
+                        permutationTStats[i] = getTStat(gene);
                     }
 
-                    double[] permutationTStatsArray = permutationTStats.toArray(new double[0]);
-                    Double permutationStandardDeviation = standardDeviation.evaluate(permutationTStats);
+                    double permutationMean = mean.evaluate(permutationTStats);
+                    double permutationStandardDeviation = standardDeviation.evaluate(permutationTStats);
+
+                    double dScore = Math.abs(tStat - permutationMean) / permutationStandardDeviation;
+
+                    dataOutputStream.writeDouble(dScore);
+                    dataOutputStream.flush();
                 }
-
-
-
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -89,8 +96,16 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private Double getTStat(List<Double> gene) {
-        return 0.09;
+    private double getTStat(double[] gene) {
+        double[] first = Arrays.copyOfRange(gene, 0, 8);
+        double firstMean = mean.evaluate(first);
+        double firstStandardDeviation = standardDeviation.evaluate(first);
+
+        double[] last = Arrays.copyOfRange(gene, 8, gene.length);
+        double lastMean = mean.evaluate(last);
+        double lastStandardDeviation = standardDeviation.evaluate(last);
+
+        return (firstMean - lastMean) / Math.sqrt((Math.pow(firstStandardDeviation, 2) / 8) + Math.pow(lastStandardDeviation, 2) / 52);
     }
 
     @Override
@@ -113,5 +128,18 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    // helper method to shuffle permutations
+    private static void shuffleArray(double[] array) {
+        int index;
+        double temp;
+        Random random = new Random();
+        for (int i = array.length - 1; i > 0; i--) {
+            index = random.nextInt(i + 1);
+            temp = array[index];
+            array[index] = array[i];
+            array[i] = temp;
+        }
     }
 }
