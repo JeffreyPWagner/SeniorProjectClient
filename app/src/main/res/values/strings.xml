@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">SeniorProject</string>
     <string name="action_settings">Settings</string>
+    <string name="connect">Connect</string>
+    <string name="_0">0</string>
+    <string name="calculations_completed">Calculations completed:</string>
+    <string name="disconnect">Disconnect</string>
 </resources>
